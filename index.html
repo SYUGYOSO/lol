@@ -1,0 +1,2256 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>LoL ランキング整理</title>
+  <style>
+    :root{
+      --bg:#ffffff; --card:#ffffff; --border:rgba(0,0,0,.10);
+      --text:#111111; --muted:#666666; --thead:#fafafa; --focus:rgba(43,124,255,.18);
+
+      --c:#FFE08A; --cText:#2A1A00;   /* Challenger: pale lemon */
+      --gm:#E04646; --gmText:#ffffff;
+      --m:#9B59B6;  --mText:#ffffff;
+      --p:#7A7A7A;
+
+      --div1:1; --div2:.85; --div3:.70; --div4:.55;
+      color-scheme: light;
+    }
+    :root[data-theme="dark"]{
+      --bg:#0b0f14; --card:#101826; --border:rgba(255,255,255,.12);
+      --text:#e8eef7; --muted:#a8b3c5; --thead:rgba(255,255,255,.06); --focus:rgba(120,170,255,.22);
+
+      --c:#FFE08A; --cText:#1a1200;
+      --gm:#FF5A5A; --gmText:#140000;
+      --m:#B58AE6;  --mText:#1a0826;
+      --p:#9AA3AD;
+
+      color-scheme: dark;
+    }
+
+    *{ box-sizing:border-box; }
+    body{
+      margin:18px;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans JP",sans-serif;
+      color:var(--text);
+      background:var(--bg);
+      max-width:1360px;
+    }
+    h1{ font-size:18px; margin:0 0 10px; }
+    .muted{ color:var(--muted); font-size:12px; line-height:1.55; }
+    .row{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+    .card{ border:1px solid var(--border); border-radius:14px; padding:12px; background:var(--card); margin:12px 0; }
+    textarea{
+      width:100%; min-height:240px; resize:vertical; padding:10px 12px;
+      border:1px solid var(--border); border-radius:12px; font-size:13px; line-height:1.45;
+      outline:none; white-space:pre-wrap; background:var(--card); color:var(--text);
+    }
+    textarea:focus{ border-color:rgba(43,124,255,.35); box-shadow:0 0 0 3px var(--focus); }
+    select, button{
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:9px 11px;
+      background:var(--card);
+      color:var(--text);
+      font-size:14px;
+    }
+    button{ cursor:pointer; font-weight:900; user-select:none; }
+    button.primary{ background:rgba(43,124,255,.12); border-color:rgba(43,124,255,.28); }
+    button.primary:hover{ background:rgba(43,124,255,.16); }
+    button.danger{ background:rgba(224,70,70,.12); border-color:rgba(224,70,70,.28); }
+    button.danger:hover{ background:rgba(224,70,70,.16); }
+    button.ghost:hover{ background:rgba(0,0,0,.05); }
+    :root[data-theme="dark"] button.ghost:hover{ background:rgba(255,255,255,.06); }
+
+    .pill{ display:inline-flex; align-items:center; gap:8px; padding:8px 10px; border:1px solid var(--border); border-radius:999px; background:var(--card); font-size:12px; color:var(--muted); }
+    .badge{ display:inline-flex; align-items:center; gap:6px; font-size:12px; padding:6px 9px; border-radius:999px; border:1px solid var(--border); background:var(--card); color:var(--muted); font-weight:900; white-space:nowrap; }
+    .badge.ok{ border-color:rgba(31,157,85,.35); background:rgba(31,157,85,.12); color:var(--text); }
+    .badge.warn{ border-color:rgba(182,106,0,.35); background:rgba(182,106,0,.12); color:var(--text); }
+
+    .tabs{ display:flex; gap:8px; margin:12px 0; }
+    .tabBtn{ border:1px solid var(--border); border-radius:999px; padding:8px 12px; background:var(--card); font-weight:900; font-size:13px; cursor:pointer; }
+    .tabBtn.active{ border-color:rgba(43,124,255,.35); background:rgba(43,124,255,.12); }
+    .hidden{ display:none !important; }
+
+    .gridAudit{ display:grid; grid-template-columns:1fr; gap:12px; }
+    @media (min-width:1100px){ .gridAudit{ grid-template-columns:1.3fr .7fr; } }
+
+    .gridParse{ display:grid; grid-template-columns:1fr; gap:12px; }
+    @media (min-width:1100px){ .gridParse{ grid-template-columns:1.5fr .5fr; } }
+
+    .scrollWrap{overflow:auto; max-height:560px; margin-top:10px; position:relative; }
+    /* ===== Tab1: make both tables same height ===== */
+    
+    /* Unified card header (Tab1 tables) */
+    #tab-parse .cardHeader{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      min-height:44px;
+      padding:2px 0 8px;
+    }
+    #tab-parse .cardTitle{
+      font-weight:1000;
+      font-size:14px;
+      line-height:1.2;
+    }
+#tab-parse .gridParse .scrollWrap{
+      height:560px;
+      max-height:560px;
+    }
+    /* ===== Tab2: align scroll heights (input table & distribution) ===== */
+    #tab-audit .gridAudit #auditScroll.scrollWrap,
+    #tab-audit .gridAudit #distScroll.scrollWrap{
+      height:560px;
+      max-height:560px;
+    }
+
+    /* ===== Tab pages: unify visible area height (Tab1/Tab2 same) ===== */
+    :root{ --appH: 980px; }
+    #tab-parse, #tab-audit{
+      height: var(--appH);
+      min-height: var(--appH);
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+    #tab-parse .gridParse,
+    #tab-audit .gridAudit{
+      flex:1 1 auto;
+      overflow:hidden;
+      min-height:0;
+    }
+    #tab-parse .gridParse > .card,
+    #tab-audit .gridAudit > .card{
+      height:100%;
+      display:flex;
+      flex-direction:column;
+      overflow:hidden;
+      min-height:0;
+    }
+    #tab-parse .gridParse .scrollWrap,
+    #tab-audit .gridAudit .scrollWrap{
+      flex:1 1 auto;
+      height:auto !important;
+      max-height:none !important;
+      min-height:0;
+      margin-top:10px;
+    }
+
+    /* ===== Tab2: unify card headers (left table & right distribution) ===== */
+    #tab-audit .cardHeader{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      min-height:44px;
+      padding:2px 0 8px;
+    }
+    #tab-audit .cardTitle{
+      font-weight:1000;
+      font-size:14px;
+      line-height:1.2;
+    }
+    table{
+      width:100%;
+      border-collapse:separate;
+      border-spacing:0;
+      border:1px solid var(--border);
+      border-radius:12px;
+      background:var(--card);
+    }
+    thead th{
+      position:-webkit-sticky;
+      position:sticky;
+      top:0;
+      z-index:3;
+      background:var(--thead);
+      font-size:12px;
+      color:var(--text);
+      text-align:left;
+      padding:10px 10px;
+      border-bottom:1px solid var(--border);
+      white-space:nowrap;
+      box-shadow: 0 1px 0 rgba(0,0,0,.10);
+    }
+    tbody td{
+      font-size:13px;
+      padding:10px 10px;
+      border-bottom:1px solid rgba(0,0,0,.06);
+      vertical-align:middle;
+      color:var(--text);
+    }
+    :root[data-theme="dark"] tbody td{ border-bottom:1px solid rgba(255,255,255,.08); }
+    tbody tr:last-child td{ border-bottom:none; }
+    td.num, th.num{ text-align:right; }
+    td.center, th.center{ text-align:center; }
+    .small{ font-size:12px; color:var(--muted); }
+
+    .iconBtn{
+      display:inline-flex; align-items:center; justify-content:center;
+      height:32px; min-width:72px;
+      padding:0 10px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      font-weight:1000;
+      font-size:12px;
+      cursor:pointer;
+      text-decoration:none;
+      user-select:none;
+    }
+    .iconBtn.primary{
+      border-color: rgba(43,124,255,.25);
+      background: rgba(43,124,255,.12);
+    }
+    .iconBtn.primary:hover{ background: rgba(43,124,255,.16); }
+    .iconBtn:hover{ background: rgba(0,0,0,.05); }
+    :root[data-theme="dark"] .iconBtn:hover{ background: rgba(255,255,255,.06); }
+
+    .rankPickWrap{ overflow:auto; }
+    .rankPick{ display:flex; flex-wrap:nowrap; gap:8px; margin-top:8px; padding-bottom:2px; }
+    .rankBtn{
+      border:1px solid var(--border);
+      border-radius:999px;
+      padding:8px 12px;
+      background:var(--card);
+      font-size:13px;
+      font-weight:1000;
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      white-space:nowrap;
+      flex:0 0 auto;
+    }
+    .rankBtn.active{ border-color:rgba(43,124,255,.35); background:rgba(43,124,255,.12); }
+    .rankBtn .code{ border:1px solid var(--border); border-radius:999px; padding:2px 7px; font-size:12px; background:var(--card); color:var(--text); font-weight:1000; }
+
+    .toast{ position:fixed; left:50%; bottom:16px; transform:translateX(-50%); background:#111; color:#fff; padding:10px 12px; border-radius:999px; font-size:12px; opacity:0; pointer-events:none; transition:opacity .18s ease; z-index:2147482000; }
+    :root[data-theme="dark"] .toast{ background:#e8eef7; color:#0b0f14; }
+    .toast.show{ opacity:.92; }
+
+    .badge.C  { background:var(--c);  color:var(--cText); border-color:rgba(0,0,0,.08); }
+    .badge.GM { background:var(--gm); color:var(--gmText); border-color:rgba(0,0,0,.10); }
+    .badge.M  { background:var(--m);  color:var(--mText); border-color:rgba(0,0,0,.10); }
+    .badge.P- { background:var(--p);  color:#fff; border-color:rgba(0,0,0,.10); }
+    .badge.D1{ background:rgba(43,124,255,var(--div1)); color:#fff; }
+    .badge.D2{ background:rgba(43,124,255,var(--div2)); color:#fff; }
+    .badge.D3{ background:rgba(43,124,255,var(--div3)); color:var(--text); }
+    .badge.D4{ background:rgba(43,124,255,var(--div4)); color:var(--text); }
+    .badge.E1{ background:rgba(31,157,85,var(--div1)); color:#fff; }
+    .badge.E2{ background:rgba(31,157,85,var(--div2)); color:#fff; }
+    .badge.E3{ background:rgba(31,157,85,var(--div3)); color:var(--text); }
+    .badge.E4{ background:rgba(31,157,85,var(--div4)); color:var(--text); }
+    .tierCell{ display:inline-flex; align-items:center; justify-content:center; min-width:42px; }
+
+    .chartWrap{ border:1px solid var(--border); border-radius:14px; padding:10px; background:var(--card); }
+    canvas{ width:100%; height:250px; display:block; }
+
+    table.pretty{ table-layout:auto; }
+    table.pretty col.rank   { width:60px; }
+    table.pretty col.riot   { width:280px; }
+    table.pretty col.cur    { width:80px; }
+    table.pretty col.lp     { width:70px; }
+    table.pretty col.wr     { width:90px; }
+    table.pretty col.games  { width:90px; }
+    table.pretty col.champs { width:auto; }
+    table.pretty col.opgg   { width:100px; }
+
+    tbody tr:hover td{ background: rgba(43,124,255,.06); }
+    :root[data-theme="dark"] tbody tr:hover td{ background: rgba(120,170,255,.08); }
+    tbody tr:nth-child(even) td{ background: rgba(0,0,0,.02); }
+    :root[data-theme="dark"] tbody tr:nth-child(even) td{ background: rgba(255,255,255,.03); }
+    td.tight{ padding-top:8px; padding-bottom:8px; }
+
+    .riotRow{ display:flex; align-items:center; gap:8px; min-width:0; }
+    .riotRow .name{ font-weight:1000; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+    .miniCopy{
+      border:1px solid var(--border);
+      background:var(--card);
+      border-radius:10px;
+      height:28px;
+      padding:0 10px;
+      font-size:12px;
+      font-weight:1000;
+      cursor:pointer;
+      transition: background .15s ease, transform .08s ease;
+    }
+    .miniCopy:hover{ background:rgba(0,0,0,.05); }
+    :root[data-theme="dark"] .miniCopy:hover{ background:rgba(255,255,255,.06); }
+    .miniCopy:active{ transform: scale(.95); }
+    .miniCopy.success{ background: rgba(31,157,85,.18); border-color: rgba(31,157,85,.45); }
+    .miniCopy .icon{ display:inline-block; transition: opacity .12s ease, transform .12s ease; }
+    .miniCopy.fadeOut .icon{ opacity:0; transform:scale(.8); }
+    .miniCopy.fadeIn .icon{ opacity:1; transform:scale(1); }
+
+    .champList{ display:flex; flex-direction:column; gap:4px; }
+    .champLine{ white-space:nowrap; font-weight:900; }
+
+    th.sortable{ cursor:pointer; user-select:none; }
+    th.sortable:hover{ background: rgba(43,124,255,.08); }
+    :root[data-theme="dark"] th.sortable:hover{ background: rgba(120,170,255,.10); }
+    .sortMark{ color:var(--muted); margin-left:6px; font-weight:1000; }
+
+    @media (max-width: 900px){
+      table.pretty col.riot   { width:200px; }
+      table.pretty col.opgg   { width:92px; }
+      .iconBtn{ min-width:54px; }
+      .iconBtn span.txt{ display:none; }
+      .champList{ font-size:12px; }
+    }
+    @media (max-width: 600px){
+      .champList{ flex-direction:row; flex-wrap:wrap; gap:6px; }
+      .champLine{
+        background:rgba(120,170,255,.12);
+        padding:4px 8px;
+        border-radius:8px;
+        font-size:11px;
+        font-weight:1000;
+      }
+      :root[data-theme="dark"] .champLine{ background:rgba(120,170,255,.16); }
+    }
+
+    /* ===== 過去ランクセレクト: 選択値で塗る ===== */
+    .prevSelect{
+      width: 150px;
+      max-width: 100%;
+      font-weight: 1000;
+      border-radius: 12px;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      outline: none;
+    }
+    .prevSelect[data-prev=""]{ background: var(--card); color: var(--muted); }
+
+    .prevSelect[data-prev="C"]  { background:var(--c);  color:var(--cText); border-color:rgba(0,0,0,.10); }
+    .prevSelect[data-prev="GM"] { background:var(--gm); color:var(--gmText); border-color:rgba(0,0,0,.10); }
+    .prevSelect[data-prev="M"]  { background:var(--m);  color:var(--mText); border-color:rgba(0,0,0,.10); }
+    .prevSelect[data-prev="P-"] { background:var(--p);  color:#fff; border-color:rgba(0,0,0,.10); }
+
+    .prevSelect[data-prev="D1"] { background:rgba(43,124,255,var(--div1)); color:#fff; }
+    .prevSelect[data-prev="D2"] { background:rgba(43,124,255,var(--div2)); color:#fff; }
+    .prevSelect[data-prev="D3"] { background:rgba(43,124,255,var(--div3)); color:var(--text); }
+    .prevSelect[data-prev="D4"] { background:rgba(43,124,255,var(--div4)); color:var(--text); }
+
+    .prevSelect[data-prev="E1"] { background:rgba(31,157,85,var(--div1)); color:#fff; }
+    .prevSelect[data-prev="E2"] { background:rgba(31,157,85,var(--div2)); color:#fff; }
+    .prevSelect[data-prev="E3"] { background:rgba(31,157,85,var(--div3)); color:var(--text); }
+    .prevSelect[data-prev="E4"] { background:rgba(31,157,85,var(--div4)); color:var(--text); }
+
+    .prevSelect:focus{
+      box-shadow: 0 0 0 3px var(--focus);
+      border-color: rgba(43,124,255,.35);
+    }
+
+    /* ===== Help Modal ===== */
+    .modal.hidden{ display:none !important; }
+    .modal{ position:fixed; inset:0; z-index:2147483000; }
+    .modalOverlay{ position:absolute; inset:0; background:rgba(0,0,0,.45); }
+    :root[data-theme="dark"] .modalOverlay{ background:rgba(0,0,0,.55); }
+    .modalPanel{
+      position:relative;
+      width:min(920px, calc(100vw - 24px));
+      max-height: calc(100vh - 24px);
+      margin:12px auto;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow:hidden;
+      box-shadow: 0 18px 60px rgba(0,0,0,.22);
+    }
+    .modalHead{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      padding:12px 14px;
+      border-bottom:1px solid var(--border);
+      background: linear-gradient(to bottom, rgba(43,124,255,.10), transparent);
+    }
+    .modalTitle{ font-weight:1000; font-size:16px; }
+    .modalSub{ color:var(--muted); font-size:12px; margin-top:2px; }
+    .modalBody{
+      padding:14px;
+      overflow:auto;
+      max-height: calc(100vh - 120px);
+    }
+    .helpSec{ border:1px solid var(--border); border-radius:14px; padding:12px; margin-bottom:12px; background:rgba(0,0,0,.02); }
+    :root[data-theme="dark"] .helpSec{ background:rgba(255,255,255,.03); }
+    .helpSec h3{ margin:0 0 8px; font-size:14px; }
+    .helpSec ul{ margin:0; padding-left:18px; }
+    .helpSec li{ margin:6px 0; }
+
+    .helpLinkRow{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+    .kbd{ font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace; font-size:12px; padding:2px 6px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--text); }
+
+    /* ---- 使い方：Tab1/Tab2 を並列表示 ---- */
+    .howtoGrid{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap:12px;
+    }
+    @media (max-width: 760px){
+      .howtoGrid{ grid-template-columns: 1fr; }
+    }
+    .howtoCard{
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:12px;
+      background:var(--card);
+    }
+    .howtoTitle{ font-weight:1000; margin-bottom:6px; }
+
+    /* 略称：左列に6個、右列に6個（縦に並ぶ） */
+    .abbrGrid{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-rows: repeat(6, auto);
+      grid-auto-flow: column;
+      gap:10px 12px;
+    }
+    @media (max-width: 720px){
+      .abbrGrid{
+        grid-template-columns: 1fr;
+        grid-template-rows: none;
+        grid-auto-flow: row;
+      }
+    }
+    .abbrRow{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:8px 10px;
+      border:1px solid var(--border);
+      border-radius:12px;
+      background: var(--card);
+    }
+    .legendKey{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-width:46px;
+      padding:5px 10px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      font-weight:1000;
+    }
+    .legendKey.C  { background:var(--c);  color:var(--cText); }
+    .legendKey.GM { background:var(--gm); color:var(--gmText); }
+    .legendKey.M  { background:var(--m);  color:var(--mText); }
+    .legendKey.P- { background:var(--p);  color:#fff; }
+    .legendKey.D1{ background:rgba(43,124,255,var(--div1)); color:#fff; }
+    .legendKey.D2{ background:rgba(43,124,255,var(--div2)); color:#fff; }
+    .legendKey.D3{ background:rgba(43,124,255,var(--div3)); color:var(--text); }
+    .legendKey.D4{ background:rgba(43,124,255,var(--div4)); color:var(--text); }
+    .legendKey.E1{ background:rgba(31,157,85,var(--div1)); color:#fff; }
+    .legendKey.E2{ background:rgba(31,157,85,var(--div2)); color:#fff; }
+    .legendKey.E3{ background:rgba(31,157,85,var(--div3)); color:var(--text); }
+    .legendKey.E4{ background:rgba(31,157,85,var(--div4)); color:var(--text); }
+
+    /* ===== Help Modal links ===== */
+    .iconBtn{
+      display:inline-flex; align-items:center; justify-content:center;
+      height:32px; min-width:72px;
+      padding:0 10px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      font-weight:1000;
+      font-size:12px;
+      cursor:pointer;
+      text-decoration:none;
+      user-select:none;
+    }
+    .iconBtn.primary{
+      border-color: rgba(43,124,255,.25);
+      background: rgba(43,124,255,.12);
+    }
+    .iconBtn.primary:hover{ background: rgba(43,124,255,.16); }
+    .iconBtn:hover{ background: rgba(0,0,0,.05); }
+    :root[data-theme="dark"] .iconBtn:hover{ background: rgba(255,255,255,.06); }
+  
+    /* =========================
+       Luxe / 3D-ish UI override
+       ========================= */
+    :root{
+      --shadow1: 0 1px 1px rgba(0,0,0,.06), 0 10px 28px rgba(0,0,0,.10);
+      --shadow2: 0 2px 2px rgba(0,0,0,.06), 0 18px 46px rgba(0,0,0,.16);
+      --glow: 0 0 0 3px rgba(43,124,255,.18);
+      --gradA: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,0));
+      --gradB: radial-gradient(1200px 700px at 20% -10%, rgba(43,124,255,.18), transparent 60%),
+               radial-gradient(900px 600px at 110% 10%, rgba(255,224,138,.16), transparent 55%),
+               radial-gradient(900px 700px at 50% 120%, rgba(31,157,85,.12), transparent 55%);
+    }
+    :root[data-theme="dark"]{
+      --shadow1: 0 1px 1px rgba(0,0,0,.25), 0 14px 34px rgba(0,0,0,.55);
+      --shadow2: 0 2px 2px rgba(0,0,0,.28), 0 22px 60px rgba(0,0,0,.70);
+      --gradA: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,0));
+      --gradB: radial-gradient(1200px 700px at 10% -10%, rgba(120,170,255,.18), transparent 60%),
+               radial-gradient(900px 600px at 110% 10%, rgba(255,224,138,.10), transparent 55%),
+               radial-gradient(900px 700px at 50% 120%, rgba(31,157,85,.08), transparent 55%);
+    }
+
+    body{
+      background: var(--bg);
+      background-image: var(--gradB);
+      max-width: 1440px;
+    }
+
+    /* top bar polish */
+    body > .row:first-of-type{
+      position: sticky;
+      top: 10px;
+      z-index: 10;
+      padding: 10px 12px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: color-mix(in srgb, var(--card) 80%, transparent);
+      box-shadow: var(--shadow1);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+
+    .card{
+      border-radius: 18px;
+      border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+      background: color-mix(in srgb, var(--card) 92%, transparent);
+      box-shadow: var(--shadow1);
+      padding: 14px;
+      transition: transform .12s ease, box-shadow .18s ease, border-color .18s ease;
+    }
+    .card:hover{
+      box-shadow: var(--shadow2);
+      border-color: color-mix(in srgb, var(--border) 60%, rgba(43,124,255,.25));
+      transform: translateY(-1px);
+    }
+
+    /* soften table "plate" */
+    table{
+      border-radius: 14px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+    }
+    thead th{
+      background: color-mix(in srgb, var(--thead) 70%, transparent);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+
+    /* buttons: depth + highlight */
+    button, select{
+      border-radius: 14px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.10);
+      transition: transform .08s ease, box-shadow .18s ease, background .18s ease, border-color .18s ease;
+    }
+    button:hover{
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.10), 0 10px 22px rgba(0,0,0,.12);
+      transform: translateY(-1px);
+    }
+    button:active{
+      transform: translateY(0px) scale(.99);
+      box-shadow: inset 0 2px 0 rgba(0,0,0,.10);
+    }
+    button.primary{
+      background: linear-gradient(180deg, rgba(43,124,255,.22), rgba(43,124,255,.10));
+      border-color: rgba(43,124,255,.35);
+    }
+    button.danger{
+      background: linear-gradient(180deg, rgba(224,70,70,.22), rgba(224,70,70,.10));
+      border-color: rgba(224,70,70,.35);
+    }
+
+    .tabBtn{
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.10);
+    }
+    .tabBtn.active{
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 10px 22px rgba(0,0,0,.12);
+    }
+
+    textarea{
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+    }
+    textarea:focus{
+      box-shadow: var(--glow);
+    }
+
+    /* scrollbars (webkit) */
+    .scrollWrap::-webkit-scrollbar{ width: 12px; height: 12px; }
+    .scrollWrap::-webkit-scrollbar-track{
+      background: color-mix(in srgb, var(--card) 88%, transparent);
+      border-radius: 999px;
+    }
+    .scrollWrap::-webkit-scrollbar-thumb{
+      background: color-mix(in srgb, var(--muted) 40%, transparent);
+      border: 3px solid color-mix(in srgb, var(--card) 88%, transparent);
+      border-radius: 999px;
+    }
+    .scrollWrap::-webkit-scrollbar-thumb:hover{
+      background: color-mix(in srgb, var(--muted) 60%, transparent);
+    }
+
+    /* tiny separation line between header and content in cards */
+    .cardHeader{
+      position: relative;
+    }
+    .cardHeader:after{
+      content:"";
+      position:absolute;
+      left:0; right:0; bottom:-6px;
+      height:1px;
+      background: color-mix(in srgb, var(--border) 75%, transparent);
+      opacity:.65;
+    }
+
+    /* charts container depth */
+    .chartWrap{
+      border-radius: 16px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+    }
+
+    /* reduce harsh stripes */
+    tbody tr:nth-child(even) td{ background: color-mix(in srgb, var(--card) 95%, rgba(0,0,0,.02)); }
+    :root[data-theme="dark"] tbody tr:nth-child(even) td{ background: rgba(255,255,255,.025); }
+
+</style>
+</head>
+<body>
+  <div class="row" style="justify-content:space-between; gap:12px;">
+    <h1 style="margin:0;">LoL ランキング整理</h1>
+    <div class="row" style="gap:8px;">
+      <button id="btnHelp" class="ghost" title="ヘルプ">🆘 ヘルプ</button>
+      <button id="btnTheme" class="ghost" title="ダークモード切替">🌙 / ☀️</button>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tabBtn active" id="tabBtn-parse">📊 Tab 1：ランキングデータ格納</button>
+    <button class="tabBtn" id="tabBtn-audit">📈 Tab 2：過去ランク分布</button>
+  </div>
+
+  <!-- ===================== TAB 1 ===================== -->
+  <div id="tab-parse">
+    <div class="card">
+      <div class="row" style="justify-content:space-between;">
+        <div class="row">
+          <label class="pill">
+            リージョン
+            <select id="region">
+              <option value="jp" selected>JP</option>
+              <option value="kr">KR</option>
+              <option value="na">NA</option>
+              <option value="euw">EUW</option>
+              <option value="eune">EUNE</option>
+              <option value="oce">OCE</option>
+              <option value="br">BR</option>
+              <option value="lan">LAN</option>
+              <option value="las">LAS</option>
+              <option value="tr">TR</option>
+              <option value="ru">RU</option>
+              <option value="sg">SG</option>
+              <option value="ph">PH</option>
+              <option value="tw">TW</option>
+              <option value="vn">VN</option>
+              <option value="th">TH</option>
+            </select>
+          </label>
+          <span id="status" class="badge">準備OK</span>
+          <span class="pill" id="countLabel">0件</span>
+        </div>
+
+        <div class="row">
+          <button class="primary" id="btnParse">🧹 整理する</button>
+<button class="danger" id="btnClear">🗑️ クリア</button>
+        </div>
+      </div>
+
+      <div style="margin-top:10px;">
+        <textarea id="input" placeholder="ここにleaderboardsのコピー結果を貼り付け（そのまま）"></textarea>
+      </div>
+      <div class="small" style="margin-top:8px;">ショートカット：<span class="kbd">Ctrl/Cmd + Enter</span></div>
+    </div>
+
+    <div class="gridParse">
+      <div class="card">
+        <div class="cardHeader"><div class="cardTitle">整理結果（ソート：# / 勝率 / 試合数）</div><div class="row"></div></div>
+        <div class="scrollWrap">
+          <table class="pretty">
+            <colgroup>
+              <col class="rank" />
+              <col class="riot" />
+              <col class="cur" />
+              
+              <col class="wr" />
+              <col class="games" />
+              <col class="champs" />
+              <col class="opgg" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th class="num sortable" data-sort="rank">順位 <span class="sortMark" id="mark-rank"></span></th>
+                <th>Riot ID</th>
+                <th>現在</th>
+                
+                <th class="num sortable" data-sort="winrateNum">勝率 <span class="sortMark" id="mark-winrateNum"></span></th>
+                <th class="num sortable" data-sort="gamesNum">試合数 <span class="sortMark" id="mark-gamesNum"></span></th>
+                <th>使用チャンピオン</th>
+                <th class="center">OP.GG</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="cardHeader"><div class="cardTitle">使用チャンピオン出現回数（Tab1）</div><div class="row"><span class="pill" id="champCountLabel">0種</span></div></div>
+
+        <div class="scrollWrap">
+          <table>
+            <thead>
+              <tr>
+                <th class="sortable" data-sort="champ">チャンピオン <span class="sortMark" id="mark-champ"></span></th>
+                <th class="num sortable" data-sort="count">出現回数 <span class="sortMark" id="mark-count"></span></th>
+                <th class="num sortable" data-sort="share">割合 <span class="sortMark" id="mark-share"></span></th>
+              </tr>
+            </thead>
+            <tbody id="champTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== TAB 2 ===================== -->
+  <div id="tab-audit" class="hidden">
+    <div class="card">
+      <div class="row" style="justify-content:space-between;">
+        <div>
+          <div style="font-weight:1000; font-size:14px;">現在ランクを選ぶ</div>
+        </div>
+        <div class="row">
+          <span class="pill" id="auditCount">0人</span>
+<button class="danger" id="btnResetPrevRanks">🧽 過去ランク全消し</button>
+        </div>
+      </div>
+
+      <div class="rankPickWrap">
+        <div class="rankPick" id="rankPick"></div>
+      </div>
+
+      <div class="row" style="margin-top:10px; justify-content:space-between;">
+        <div class="row">
+          <label class="pill">
+            集計モード
+            <select id="viewMode">
+              <option value="division" selected>ディビジョン</option>
+              <option value="tier">ティア</option>
+            </select>
+          </label>
+          <label class="pill">
+            表示
+            <select id="tableMode">
+              <option value="all" selected>全員</option>
+              <option value="unfilled">未入力のみ</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="row">
+          <span class="badge" id="filledInfo">入力済み: 0</span>
+          <span class="badge" id="unfilledInfo">未入力: 0</span>
+          <span class="badge" id="distTotalInfo">集計人数: 0</span>
+          <button class="primary" id="btnNextUnfilled">👉 未入力へ ▶</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="gridAudit">
+      <div class="card">
+        <div class="cardHeader"><div class="cardTitle">入力テーブル（選択した現在ランクのみ）</div><div class="row"></div></div>
+        <div class="scrollWrap" id="auditScroll">
+          <table>
+            <thead>
+              <tr>
+                <th class="num">順位</th>
+                <th>Riot ID</th>
+                <th>現在</th>
+                <th class="center">OP.GG</th>
+                <th>過去ランク</th>
+              </tr>
+            </thead>
+            <tbody id="auditTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="cardHeader"><div class="cardTitle">過去ランク分布</div><div class="pill" id="distTitle">（現在：C）</div></div>
+        <div class="scrollWrap" id="distScroll">
+          <div class="chartWrap">
+            <canvas id="pie"></canvas>
+          </div>
+
+          <div class="chartWrap" style="margin-top:12px;">
+            <canvas id="bar"></canvas>
+          </div>
+
+          <div style="margin-top:12px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>過去ランク</th>
+                  <th class="num">人数</th>
+                  <th class="num">割合</th>
+                </tr>
+              </thead>
+              <tbody id="distTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- Help Modal -->
+  <div id="helpModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+    <div class="modalOverlay" data-close="1"></div>
+    <div class="modalPanel">
+      <div class="modalHead">
+        <div>
+          <div id="helpTitle" class="modalTitle">ヘルプ</div>
+          <div class="modalSub">使い方 と 略称一覧</div>
+        </div>
+        <button id="btnHelpClose" class="ghost" title="閉じる">✕ 閉じる</button>
+      </div>
+
+      <div class="modalBody">
+        <section class="helpSec">
+          <h3>やれること＆今後について</h3>
+          <ul>
+            <li>OP.GGのランキングから、よく使われるチャンピオンや過去ランクの分布を作成する</li>
+            <li>今後もできることを考えて拡張するかも</li>
+          </ul>
+        </section>
+
+        <section class="helpSec">
+          <h3>OP.GG（ランキングデータ取得先）</h3>
+          <div class="helpLinkRow">
+            <label class="pill">
+              リージョン
+              <select id="helpRegion">
+              <option value="jp">JP</option>
+              <option value="kr">KR</option>
+              <option value="na">NA</option>
+              <option value="euw">EUW</option>
+              <option value="eune">EUNE</option>
+              <option value="oce">OCE</option>
+              <option value="br">BR</option>
+              <option value="lan">LAN</option>
+              <option value="las">LAS</option>
+              <option value="tr">TR</option>
+              <option value="ru">RU</option>
+              <option value="sg">SG</option>
+              <option value="ph">PH</option>
+              <option value="tw">TW</option>
+              <option value="vn">VN</option>
+              <option value="th">TH</option>
+              </select>
+            </label>
+
+            <a id="helpOpggLink" class="iconBtn primary" href="https://op.gg/lol/leaderboards/tier?region=jp" target="_blank" rel="noopener noreferrer" title="OP.GGリーダーボードを開く">
+              🔗 <span class="txt">Open</span>
+            </a>
+            <span class="small" id="helpOpggUrlText">https://op.gg/lol/leaderboards/tier?region=jp</span>
+          </div>
+        </section>
+
+        <section class="helpSec">
+          <h3>ランキングコピー用のブックマーク作成</h3>
+          <div class="small" style="margin-bottom:8px;">
+            下のリンクを <b>ブックマークバーへドラッグ＆ドロップ</b> すると作成できる。
+          </div>
+
+          <div class="helpLinkRow">
+            <a id="dragBookmarklet" class="iconBtn primary" href="#" draggable="true" title="ブックマークバーへドラッグ">
+              📌 <span class="txt">OPGG Leaderboards Copy</span>
+            </a>
+            <span class="small">（←をブックマークバーへドラッグ＆ドロップ）</span>
+          </div>
+
+          <div class="small" style="margin-top:10px;">
+            使い方：OP.GGのリーダーボードでこのブックマークを押す → コピー結果をTab1へ貼る
+          </div>
+        </section>
+
+        <section class="helpSec">
+          <h3>使い方</h3>
+
+          <!-- ★ Tab1/Tab2 を並列表示 -->
+          <div class="howtoGrid">
+            <div class="howtoCard">
+              <div class="howtoTitle">Tab 1：ランキングデータ格納</div>
+              <ul>
+                <li>OP.GG（上のリンク）へアクセス</li>
+                <li>作成したブックマークをクリックする</li>
+                <li>コピーが成功したらテキストボックスへ貼り付ける</li>
+                <li>「整理する」をクリックする</li>
+                <li>結果が表示される</li>
+              </ul>
+            </div>
+
+            <div class="howtoCard">
+              <div class="howtoTitle">Tab 2：過去ランク分布</div>
+              <ul>
+                <li>ランクを選択してフィルターする</li>
+                <li>過去ランクを入力する</li>
+                <li>結果が表示される</li>
+                <li>ディビジョン / ティア切替可</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section class="helpSec">
+          <h3>略称一覧</h3>
+          <div class="abbrGrid">
+            <!-- 左列（上→下 6個） -->
+            <div class="abbrRow"><span class="legendKey C">C</span><span>Challenger</span></div>
+            <div class="abbrRow"><span class="legendKey GM">GM</span><span>Grandmaster</span></div>
+            <div class="abbrRow"><span class="legendKey M">M</span><span>Master</span></div>
+            <div class="abbrRow"><span class="legendKey D1">D1</span><span>Diamond 1</span></div>
+            <div class="abbrRow"><span class="legendKey D2">D2</span><span>Diamond 2</span></div>
+            <div class="abbrRow"><span class="legendKey D3">D3</span><span>Diamond 3</span></div>
+
+            <!-- 右列（上→下 6個） -->
+            <div class="abbrRow"><span class="legendKey D4">D4</span><span>Diamond 4</span></div>
+            <div class="abbrRow"><span class="legendKey E1">E1</span><span>Emerald 1</span></div>
+            <div class="abbrRow"><span class="legendKey E2">E2</span><span>Emerald 2</span></div>
+            <div class="abbrRow"><span class="legendKey E3">E3</span><span>Emerald 3</span></div>
+            <div class="abbrRow"><span class="legendKey E4">E4</span><span>Emerald 4</span></div>
+            <div class="abbrRow"><span class="legendKey P-">P-</span><span>Platinum 1 以下（Unranked含む）</span></div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+
+
+  // ===== Auto-save (localStorage) =====
+  const STATE_KEY = "lol_rank_tool_state_v2";
+  let __saveTimer = null;
+
+  function collectState(){
+    const region = $("region")?.value || "jp";
+    return {
+      v: 2,
+      activeTab: document.querySelector(".tabBtn.active")?.id || "tabBtn-parse",
+      region,
+      input: $("input")?.value || "",
+      selectedCurRank: window.__selectedCurRank || "C",
+      viewMode: $("viewMode")?.value || "division",
+      tableMode: $("tableMode")?.value || "all",
+    };
+  }
+  function saveStateSoon(){
+    clearTimeout(__saveTimer);
+    __saveTimer = setTimeout(()=>{
+      try{ localStorage.setItem(STATE_KEY, JSON.stringify(collectState())); }catch{}
+    }, 250);
+  }
+  function loadState(){
+    try{
+      const raw = localStorage.getItem(STATE_KEY);
+      if (!raw) return null;
+      const st = JSON.parse(raw);
+      if (!st || typeof st !== "object") return null;
+      return st;
+    }catch{ return null; }
+  }
+  function applyState(st){
+    if (!st) return;
+    if ($("region") && st.region) $("region").value = st.region;
+    if ($("input") && typeof st.input === "string") $("input").value = st.input;
+    if ($("viewMode") && st.viewMode) $("viewMode").value = st.viewMode;
+    if ($("tableMode") && st.tableMode) $("tableMode").value = st.tableMode;
+    window.__selectedCurRank = st.selectedCurRank || window.__selectedCurRank || "C";
+  }
+
+  // ---- unify Tab1/Tab2 visible area height ----
+  function setAppHeight(){
+    const topRow = document.querySelector("body > .row");
+    const tabs = document.querySelector(".tabs");
+    const topH = (topRow?.offsetHeight || 0) + (tabs?.offsetHeight || 0);
+    const padding = 72; // body margin + breathing room
+    const h = Math.max(640, window.innerHeight - topH - padding);
+    document.documentElement.style.setProperty("--appH", h + "px");
+  }
+  window.addEventListener("resize", setAppHeight);
+  window.addEventListener("load", setAppHeight);
+
+  // ===== AUTO-SAVE listeners =====
+  window.addEventListener("load", ()=>{
+    const st = loadState();
+    applyState(st);
+
+    if ($("input")) $("input").addEventListener("input", saveStateSoon);
+    if ($("region")) $("region").addEventListener("change", ()=>{ saveStateSoon(); updateHelpOpgg(); });
+    if ($("viewMode")) $("viewMode").addEventListener("change", ()=>{ saveStateSoon(); if (typeof renderAuditAndStats==="function") renderAuditAndStats(); });
+    if ($("tableMode")) $("tableMode").addEventListener("change", ()=>{ saveStateSoon(); if (typeof renderAuditAndStats==="function") renderAuditAndStats(); });
+
+    // Auto-parse if saved input exists
+    if ($("input")?.value?.trim()){
+      try{
+        const region = $("region")?.value || "jp";
+        appRows = parseLeaderboardText($("input").value, region);
+        applySavedPrevRanks(region, appRows);
+        $("countLabel").textContent = `${appRows.length}件`;
+        renderParseTable(applySort(appRows));
+        renderChampionSummary(appRows);
+        if (typeof buildRankPick === "function") buildRankPick();
+        if (typeof renderAuditAndStats === "function") renderAuditAndStats();
+        setStatus(`OK: ${appRows.length}件`, "ok");
+    saveStateSoon();
+      }catch(e){ /* ignore */ }
+    }
+
+    // Restore active tab
+    if (st?.activeTab === "tabBtn-audit") showTab("audit");
+    else showTab("parse");
+  });
+
+  // ---- theme toggle ----
+  (function initTheme(){
+    const root = document.documentElement;
+    const key = "themePref";
+    const saved = localStorage.getItem(key);
+    root.setAttribute("data-theme", saved === "dark" ? "dark" : "light");
+    $("btnTheme").addEventListener("click", ()=>{
+      const cur = root.getAttribute("data-theme") || "light";
+      const next = (cur === "dark") ? "light" : "dark";
+      root.setAttribute("data-theme", next);
+      localStorage.setItem(key, next);
+      if (typeof renderAuditAndStats === "function") renderAuditAndStats();
+      if (typeof renderParseTable === "function") renderParseTable(applySort(appRows));
+      if (typeof renderChampionSummary === "function") renderChampionSummary(appRows);
+      toast(next === "dark" ? "ダークモード" : "ライトモード");
+    });
+  })();
+
+  function toast(msg){
+    const t = $("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(window.__toastTimer);
+    window.__toastTimer = setTimeout(()=>t.classList.remove("show"), 1400);
+  }
+  function setStatus(text, kind=""){
+    const el = $("status");
+    el.textContent = text;
+    el.className = "badge" + (kind ? (" " + kind) : "");
+  }
+
+  function normalizeSpaces(s){
+    return String(s).replace(/\u00A0/g, " ").replace(/\r/g, "").replace(/\t/g, " ").replace(/\s+/g, " ").trim();
+  }
+  function escapeHtml(str){
+    return String(str).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;");
+  }
+  function parseIntLoose(s){
+    const t = normalizeSpaces(s).replaceAll(",", "");
+    if (!/^\d+$/.test(t)) return null;
+    return parseInt(t, 10);
+  }
+  function isTagLine(line){
+    const t = normalizeSpaces(line);
+    return t.startsWith("#") && t.length >= 2;
+  }
+  function extractWinLossRate(text){
+    const t = normalizeSpaces(text).replaceAll("％","%");
+    const w = t.match(/(\d+)\s*勝/);
+    const l = t.match(/(\d+)\s*敗/);
+    const r = t.match(/(\d+)\s*%/);
+    return { wins: w ? parseInt(w[1],10) : null, losses: l ? parseInt(l[1],10) : null, rate: r ? parseInt(r[1],10) : null };
+  }
+  function buildOpggProfileUrl(region, gameName, tag){
+    const slug = `${gameName}-${tag}`;
+    return `https://op.gg/ja/lol/summoners/${encodeURIComponent(region)}/${encodeURIComponent(slug)}`;
+  }
+
+
+  function buildLeaderboardsUrl(region){
+    return `https://op.gg/lol/leaderboards/tier?region=${encodeURIComponent(region)}`;
+  }
+
+  function updateHelpOpgg(){
+    const sel = $("helpRegion");
+    if (!sel) return;
+    const region = sel.value || ($("region")?.value || "jp");
+    const url = buildLeaderboardsUrl(region);
+    const link = $("helpOpggLink");
+    if (link) link.setAttribute("href", url);
+    const txt = $("helpOpggUrlText");
+    if (txt) txt.textContent = url;
+  }
+
+  // ===== tag line can contain spaces (#I L challenger ...) =====
+  function splitTagLine(line){
+    const raw = normalizeSpaces(line);
+    const body = raw.startsWith("#") ? raw.slice(1) : raw;
+
+    const lower = body.toLowerCase();
+    const tierRe = /\b(challenger|grandmaster|master|diamond|emerald)\b/;
+    const m = lower.match(tierRe);
+
+    if (m){
+      const idx = lower.indexOf(m[0]);
+      const tagPart = body.slice(0, idx).trim();
+      const restPart = body.slice(idx).trim();
+      const tag = tagPart.replace(/\s+/g, "");
+      const rest = restPart.split(" ").filter(Boolean);
+      return { tag, rest };
+    } else {
+      const tag = body.trim().replace(/\s+/g, "");
+      return { tag, rest: [] };
+    }
+  }
+
+  function extractTierAndRestFromLine(line){
+    const t = normalizeSpaces(line).toLowerCase();
+    const mTop = t.match(/\b(challenger|grandmaster|master)\b/);
+    if (mTop){
+      const tier = mTop[1];
+      const rest = t.replace(mTop[0], " ").trim().split(" ").filter(Boolean);
+      return { tier, rest };
+    }
+    const m = t.match(/\b(diamond|emerald)\s*([1-4])\b/);
+    if (m){
+      const tier = `${m[1]} ${m[2]}`;
+      const idx = t.indexOf(m[0]);
+      const left = (idx > 0) ? t.slice(0, idx) : "";
+      const right = t.slice(idx + m[0].length);
+      const rest = (left + " " + right).trim().split(" ").filter(Boolean);
+      return { tier, rest };
+    }
+    return { tier:"", rest:[] };
+  }
+
+  function normalizeCurrentRankCode(tierStr){
+    const t = normalizeSpaces(tierStr).toLowerCase();
+    if (t.includes("challenger")) return "C";
+    if (t.includes("grandmaster")) return "GM";
+    if (t.includes("master")) return "M";
+    const mD = t.match(/\bdiamond\s*([1-4])\b/);
+    if (mD) return `D${mD[1]}`;
+    const mE = t.match(/\bemerald\s*([1-4])\b/);
+    if (mE) return `E${mE[1]}`;
+    if (t.includes("diamond")) return "D2";
+    if (t.includes("emerald")) return "E2";
+    return "P-";
+  }
+
+  // ===== FIX: Lv number wrongly treated as next rank =====
+  function prevNonEmpty(lines, idx){
+    for (let i = idx - 1; i >= 0; i--){
+      const s = normalizeSpaces(lines[i]);
+      if (s) return s;
+    }
+    return "";
+  }
+  function nextNonEmpty(lines, idx){
+    for (let i = idx + 1; i < lines.length; i++){
+      const s = normalizeSpaces(lines[i]);
+      if (s) return s;
+    }
+    return "";
+  }
+  function isRankCandidate(lines, idx){
+    const cur = normalizeSpaces(lines[idx]);
+    if (!/^\d{1,5}$/.test(cur)) return false;
+    const n = parseInt(cur, 10);
+    if (!(n > 0 && n <= 10000)) return false;
+
+    // ---- Robust rank-start detection ----
+    // Detect a rank start by looking AHEAD for a tagline (#TAG) soon,
+    // and a win/loss or percent line within a reasonable range.
+    let hasTagSoon = false;
+    for (let k=1;k<=10;k++){
+      const j = idx + k;
+      if (j >= lines.length) break;
+      const s = normalizeSpaces(lines[j]);
+      if (!s) continue;
+      if (isTagLine(s)){ hasTagSoon = true; break; }
+    }
+    if (!hasTagSoon) return false;
+
+    let hasResultSoon = false;
+    for (let k=1;k<=30;k++){
+      const j = idx + k;
+      if (j >= lines.length) break;
+      const s = normalizeSpaces(lines[j]);
+      if (!s) continue;
+      if (/%|％/.test(s) || /勝|敗/.test(s)){ hasResultSoon = true; break; }
+    }
+    if (!hasResultSoon) return false;
+
+    return true;
+  }
+
+  function findNextRankStartIndex(lines, startIdx, currentRank){
+    for (let j = startIdx; j < lines.length; j++){
+      if (!isRankCandidate(lines, j)) continue;
+      const r = parseInt(normalizeSpaces(lines[j]), 10);
+      if (r === currentRank + 1) return j;
+    }
+    let bestIdx = -1, bestRank = Infinity;
+    for (let j = startIdx; j < lines.length; j++){
+      if (!isRankCandidate(lines, j)) continue;
+      const r = parseInt(normalizeSpaces(lines[j]), 10);
+      if (r > currentRank && r < bestRank){ bestRank = r; bestIdx = j; }
+    }
+    return bestIdx;
+  }
+
+  function parseLeaderboardText(raw, region){
+    const lines = raw.split(/\r?\n/).map(s => normalizeSpaces(s)).filter(s => s !== "");
+    const rows = [];
+    let i = 0;
+    while (i < lines.length && !isRankCandidate(lines, i)) i++;
+
+    while (i < lines.length){
+      if (!isRankCandidate(lines, i)) { i++; continue; }
+      const rank = parseInt(normalizeSpaces(lines[i]), 10);
+      const nextIdx = findNextRankStartIndex(lines, i + 1, rank);
+      const j = (nextIdx === -1) ? lines.length : nextIdx;
+
+      const block = lines.slice(i + 1, j);
+      i = j;
+
+      const tagIdx = block.findIndex(isTagLine);
+      if (tagIdx === -1) continue;
+
+      const name = normalizeSpaces(block.slice(0, tagIdx).join(" "));
+      const tagLine = normalizeSpaces(block[tagIdx]);
+      const { tag, rest: tagRest } = splitTagLine(tagLine);
+
+      let after = tagRest.concat(block.slice(tagIdx + 1));
+
+      let tier = "", p = 0;
+      while (p < after.length){
+        const s = normalizeSpaces(after[p]);
+        if (parseIntLoose(s) !== null) { p++; continue; }
+        if (/勝|敗|%|％/.test(s)) { p++; continue; }
+
+        const got = extractTierAndRestFromLine(s);
+        if (got.tier){
+          tier = got.tier;
+          const leftovers = got.rest;
+          after = after.slice(0, p).concat(leftovers, after.slice(p + 1));
+          break;
+        } else {
+          tier = s;
+          p++;
+          break;
+        }
+      }
+
+      let lp = "";
+      while (p < after.length){
+        const n = parseIntLoose(after[p]);
+        if (n !== null){
+          lp = n;
+          p++;
+          break;
+        }
+        p++;
+      }
+
+      const champions = [];
+      while (p < after.length){
+        const n = parseIntLoose(after[p]);
+        if (n !== null){ p++; break; }
+        const s = after[p];
+        if (!(/勝|敗|%|％/.test(s)) && s !== tier){
+          if (champions.length < 3) champions.push(s);
+        }
+        p++;
+      }
+
+      let wins=null, losses=null, rate=null;
+      for (const s of after){
+        const got = extractWinLossRate(s);
+        if (got.wins !== null) wins = got.wins;
+        if (got.losses !== null) losses = got.losses;
+        if (got.rate !== null) rate = got.rate;
+      }
+
+      const games = (wins === null || losses === null) ? "" : (wins + losses);
+
+      const safeTag = String(tag).replace(/\s+/g,"");
+      const riotId = `${name}#${safeTag}`;
+      const url = buildOpggProfileUrl(region, name, safeTag);
+
+      rows.push({
+        rank,
+        riotId,
+        currentRankCode: normalizeCurrentRankCode(tier),
+        lp,
+        winrate: (rate === null ? "" : `${rate}%`),
+        winrateNum: (rate === null ? null : rate),
+        games,
+        gamesNum: (games === "" ? null : Number(games)),
+        champions,
+        url,
+        prevRank: ""
+      });
+    }
+
+    rows.sort((a,b)=>a.rank-b.rank);
+    return rows;
+  }
+
+  // ---- storage for prevRank (Tab2) ----
+  function storageKey(region){ return `opgg_audit_prevRank_final_drag::${region}`; }
+  function loadPrevRankMap(region){
+    try{
+      const raw = localStorage.getItem(storageKey(region));
+      if (!raw) return {};
+      const obj = JSON.parse(raw);
+      return (obj && typeof obj === "object") ? obj : {};
+    }catch{ return {}; }
+  }
+  function savePrevRankMap(region, map){
+    try{ localStorage.setItem(storageKey(region), JSON.stringify(map)); }catch{}
+  }
+  function applySavedPrevRanks(region, rows){
+    const map = loadPrevRankMap(region);
+    for (const r of rows){
+      const v = map[r.riotId];
+      if (typeof v === "string") r.prevRank = v;
+    }
+  }
+  function setPrevRank(region, riotId, value){
+    const map = loadPrevRankMap(region);
+    if (!value) delete map[riotId];
+    else map[riotId] = value;
+    savePrevRankMap(region, map);
+  }
+  function resetAllPrevRanks(region){
+    try{ localStorage.removeItem(storageKey(region)); }catch{}
+  }
+
+  let appRows = [];
+
+  // ===== sorting: ONLY rank / winrate / games =====
+  let sortKey = "rank";
+  let sortDir = "asc";
+
+  function compare(a, b, key){
+    const va = a[key], vb = b[key];
+    const aEmpty = (va === null || va === undefined || va === "");
+    const bEmpty = (vb === null || vb === undefined || vb === "");
+    if (aEmpty && bEmpty) return 0;
+    if (aEmpty) return 1;
+    if (bEmpty) return -1;
+    if (typeof va === "number" && typeof vb === "number") return va - vb;
+    return String(va).localeCompare(String(vb), "ja");
+  }
+  function applySort(rows){
+    const copied = rows.slice();
+    copied.sort((a,b)=>{
+      const c = compare(a,b,sortKey);
+      return sortDir === "asc" ? c : -c;
+    });
+    return copied;
+  }
+  function updateSortMarks(){
+    for (const k of ["rank","winrateNum","gamesNum"]){
+      const el = $("mark-" + k);
+      if (el) el.textContent = "";
+    }
+    const m = $("mark-" + sortKey);
+    if (m) m.textContent = (sortDir === "asc" ? "▲" : "▼");
+  }
+
+  async function copyText(text){
+    try{ await navigator.clipboard.writeText(text); }
+    catch{
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+  }
+
+  function badgeClassForCode(code){
+    if (/^(C|GM|M|P-|D[1-4]|E[1-4])$/.test(code)) return code;
+    if (code === "D") return "D2";
+    if (code === "E") return "E2";
+    return "P-";
+  }
+
+  // ===== Tab1 render =====
+  function renderParseTable(rows){
+    const tbody = $("tbody");
+    tbody.innerHTML = "";
+    const frag = document.createDocumentFragment();
+
+    for (const r of rows){
+      const cls = badgeClassForCode(r.currentRankCode);
+      const champs = (r.champions || []).slice(0,3);
+      const champHtml = champs.length
+        ? `<div class="champList">` + champs.map(c=>`<div class="champLine">${escapeHtml(c)}</div>`).join("") + `</div>`
+        : `<span class="small">（なし）</span>`;
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="num tight">${escapeHtml(r.rank)}</td>
+
+        <td class="tight">
+          <div class="riotRow">
+            <span class="name">${escapeHtml(r.riotId)}</span>
+            <button class="miniCopy" data-copy-riot="${escapeHtml(r.riotId)}" title="Riot IDをコピー">
+              <span class="icon">📋</span>
+            </button>
+          </div>
+        </td>
+
+        <td class="tight">
+          <span class="badge ${escapeHtml(cls)}">${escapeHtml(r.currentRankCode)}</span>
+        </td>
+
+        
+
+        <td class="num tight">${escapeHtml(r.winrate)}</td>
+        <td class="num tight">${escapeHtml(r.games)}</td>
+
+        <td class="tight">${champHtml}</td>
+
+        <td class="center tight">
+          <a class="iconBtn primary" href="${r.url}" target="_blank" rel="noopener noreferrer" title="OP.GGを開く">
+            🔗 <span class="txt">Open</span>
+          </a>
+        </td>
+      `;
+      frag.appendChild(tr);
+    }
+
+    tbody.appendChild(frag);
+
+updateChampSortMarks();
+document.querySelectorAll('#champTbody').forEach(()=>{
+  document.querySelectorAll('th.sortable[data-sort]').forEach(th=>{
+    if(!th.dataset.champHook){
+      th.dataset.champHook="1";
+      th.addEventListener("click",()=>{
+        const key=th.getAttribute("data-sort");
+        if(!["champ","count","share"].includes(key)) return;
+        if(champSortKey===key){
+          champSortDir = champSortDir==="asc"?"desc":"asc";
+        }else{
+          champSortKey=key;
+          champSortDir="asc";
+        }
+        renderChampionSummary(appRows);
+      });
+    }
+  });
+});
+
+
+    tbody.querySelectorAll("button[data-copy-riot]").forEach(btn=>{
+      btn.addEventListener("click", async ()=>{
+        const riotId = btn.getAttribute("data-copy-riot");
+        await copyText(riotId);
+
+        const iconSpan = btn.querySelector(".icon");
+        btn.classList.add("fadeOut");
+        setTimeout(()=>{
+          btn.classList.remove("fadeOut");
+          iconSpan.textContent = "✅";
+          btn.classList.add("success","fadeIn");
+        }, 120);
+
+        setTimeout(()=>{
+          btn.classList.remove("fadeIn");
+          iconSpan.textContent = "📋";
+          btn.classList.remove("success");
+        }, 900);
+
+        toast("Riot IDをコピーした");
+      });
+    });
+  }
+
+  // ===== Champion frequency block (Tab1) =====
+  function buildChampionFreq(rows){
+    const map = new Map();
+    for (const r of rows){
+      for (const c of (r.champions || [])){
+        const key = normalizeSpaces(c);
+        if (!key) continue;
+        map.set(key, (map.get(key) || 0) + 1);
+      }
+    }
+    return map;
+  }
+
+  
+let champSortKey = "count";
+let champSortDir = "desc";
+
+function applyChampSort(entries){
+  const copied = entries.slice();
+  copied.sort((a,b)=>{
+    let va = a[champSortKey];
+    let vb = b[champSortKey];
+    if (champSortKey === "champ"){
+      const c = String(va).localeCompare(String(vb),"ja");
+      return champSortDir==="asc"?c:-c;
+    }
+    const c = va - vb;
+    return champSortDir==="asc"?c:-c;
+  });
+  return copied;
+}
+function updateChampSortMarks(){
+  ["champ","count","share"].forEach(k=>{
+    const el=document.getElementById("mark-"+k);
+    if(el) el.textContent="";
+  });
+  const m=document.getElementById("mark-"+champSortKey);
+  if(m) m.textContent = champSortDir==="asc"?"▲":"▼";
+}
+
+function renderChampionSummary(rows){
+    const freq = buildChampionFreq(rows);
+    let entries = Array.from(freq.entries()).map(([champ, count]) => ({champ, count, share:0}));
+    entries = applyChampSort(entries);
+
+    const totalMentions = entries.reduce((s,x)=>s+x.count, 0);
+for(const e of entries){
+  e.share = totalMentions>0 ? (e.count/totalMentions*100):0;
+}
+
+    $("champCountLabel").textContent = `${entries.length}種`;
+
+    const tbody = $("champTbody");
+    tbody.innerHTML = "";
+    if (!entries.length){
+      tbody.innerHTML = `<tr><td colspan="3" class="small">データなし</td></tr>`;
+      return;
+    }
+
+    const frag = document.createDocumentFragment();
+    for (const e of entries){
+      const share = e.share;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${escapeHtml(e.champ)}</td>
+        <td class="num">${escapeHtml(e.count)}</td>
+        <td class="num">${escapeHtml(share.toFixed(1))}%</td>
+      `;
+      frag.appendChild(tr);
+    }
+    tbody.appendChild(frag);
+
+    window.__champCsvCache = championCsv(entries, totalMentions);
+  }
+
+  function championCsv(entries, totalMentions){
+    const header = ["champion","count","share_percent"];
+    const esc = (v) => {
+      const s = String(v ?? "");
+      if (/[",\n]/.test(s)) return `"${s.replaceAll('"','""')}"`;
+      return s;
+    };
+    const lines = [header.join(",")];
+    for (const e of entries){
+      const share = e.share;
+      lines.push([e.champ, e.count, share.toFixed(1)].map(esc).join(","));
+    }
+    return lines.join("\n");
+  }
+
+  // ===== CSV =====
+  function toCsv(rows){
+    const header = ["rank","riot_id","current","winrate","games","champions","opgg_url","past_rank"];
+    const esc = (v) => {
+      const s = String(v ?? "");
+      if (/[",\n]/.test(s)) return `"${s.replaceAll('"','""')}"`;
+      return s;
+    };
+    const lines = [header.join(",")];
+    for (const r of rows){
+      lines.push([
+        r.rank, r.riotId, r.currentRankCode, r.winrate, r.games, (r.champions || []).join(" / "), r.url, r.prevRank
+      ].map(esc).join(","));
+    }
+    return lines.join("\n");
+  }
+  function download(filename, content){
+    const blob = new Blob([content], {type:"text/csv;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  // ===== Tab2 (Past Rank) =====
+  const PREV_OPTIONS = [
+    {v:"C",  label:"C"}, {v:"GM", label:"GM"}, {v:"M",  label:"M"},
+    {v:"D1", label:"D1"}, {v:"D2", label:"D2"}, {v:"D3", label:"D3"}, {v:"D4", label:"D4"},
+    {v:"E1", label:"E1"}, {v:"E2", label:"E2"}, {v:"E3", label:"E3"}, {v:"E4", label:"E4"},
+    {v:"P-", label:"P-"},
+  ];
+  const PREV_ORDER_DIV = ["C","GM","M","D1","D2","D3","D4","E1","E2","E3","E4","P-"];
+  const PREV_ORDER_TIER = ["C","GM","M","D","E","P-"];
+  function prevToTierKey(prev){
+    if (prev==="C" || prev==="GM" || prev==="M" || prev==="P-") return prev;
+    if (prev.startsWith("D")) return "D";
+    if (prev.startsWith("E")) return "E";
+    return "P-";
+  }
+
+  function cssVar(name){
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+  function tierColor(key, mode){
+    if (key==="C")  return cssVar("--c");
+    if (key==="GM") return cssVar("--gm");
+    if (key==="M")  return cssVar("--m");
+    if (key==="P-") return cssVar("--p");
+
+    if (mode==="tier"){
+      if (key==="D") return `rgba(43,124,255,${cssVar("--div2")})`;
+      if (key==="E") return `rgba(31,157,85,${cssVar("--div2")})`;
+    }
+    if (key.startsWith("D")){
+      const div = parseInt(key[1],10);
+      const a = [cssVar("--div1"), cssVar("--div2"), cssVar("--div3"), cssVar("--div4")][div-1] || cssVar("--div4");
+      return `rgba(43,124,255,${a})`;
+    }
+    if (key.startsWith("E")){
+      const div = parseInt(key[1],10);
+      const a = [cssVar("--div1"), cssVar("--div2"), cssVar("--div3"), cssVar("--div4")][div-1] || cssVar("--div4");
+      return `rgba(31,157,85,${a})`;
+    }
+    return cssVar("--p");
+  }
+
+  function fitCanvasToCSS(canvas){
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const w = Math.max(10, Math.floor(rect.width * dpr));
+    const h = Math.max(10, Math.floor(rect.height * dpr));
+    if (canvas.width !== w || canvas.height !== h){ canvas.width = w; canvas.height = h; }
+    return {w,h,dpr};
+  }
+  function distToItems(dist, mode){
+    const order = (mode==="tier") ? PREV_ORDER_TIER : PREV_ORDER_DIV;
+    const items = [];
+    for (const key of order){
+      const count = dist.get(key) || 0;
+      if (count===0) continue;
+      items.push({ key, short:key, count });
+    }
+    items.sort((a,b)=>b.count-a.count);
+    return items;
+  }
+
+  // ---- charts (NO extra labels) ----
+  function drawPie(canvas, items, total, mode){
+    const {w,h,dpr} = fitCanvasToCSS(canvas);
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0,0,w,h);
+    const pad = 14*dpr;
+    const legendW = Math.min(w*0.48, 340*dpr);
+    const cx = pad + (w - legendW - pad*2) * 0.5;
+    const cy = h * 0.52;
+    const r = Math.min((w - legendW - pad*3) * 0.42, (h - pad*2) * 0.38);
+
+    if (total<=0 || items.length===0){
+      ctx.fillStyle = cssVar("--muted");
+      ctx.font = `${12*dpr}px system-ui`;
+      ctx.fillText("データなし", pad, 22*dpr);
+      return;
+    }
+
+    const colors = items.map(i => tierColor(i.key, mode));
+    let start = -Math.PI/2;
+    for (let i=0;i<items.length;i++){
+      const frac = items[i].count / total;
+      const ang = frac * Math.PI*2;
+      ctx.beginPath(); ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, r, start, start+ang);
+      ctx.closePath();
+      ctx.fillStyle = colors[i];
+      ctx.fill();
+      start += ang;
+    }
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, r*0.58, 0, Math.PI*2);
+    ctx.fillStyle = cssVar("--card");
+    ctx.fill();
+
+    ctx.fillStyle = cssVar("--text");
+    ctx.font = `${14*dpr}px system-ui`;
+    ctx.textAlign = "center";
+    ctx.fillText(`N=${total}`, cx, cy+5*dpr);
+    ctx.textAlign = "left";
+
+    const lx = w - legendW - pad;
+    let ly = 18*dpr;
+    ctx.font = `${11*dpr}px system-ui`;
+    for (let i=0;i<items.length;i++){
+      const it = items[i];
+      const pct = total>0 ? (it.count/total*100) : 0;
+      const line = `${it.short}  ${it.count}（${pct.toFixed(1)}%）`;
+      ctx.fillStyle = colors[i];
+      ctx.fillRect(lx, ly, 10*dpr, 10*dpr);
+      ctx.fillStyle = cssVar("--text");
+      ctx.fillText(line, lx + 14*dpr, ly + 10*dpr);
+      ly += 18*dpr;
+      if (ly > h - 10*dpr) break;
+    }
+  }
+
+  function drawBar(canvas, items, total, mode){
+    const {w,h,dpr} = fitCanvasToCSS(canvas);
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0,0,w,h);
+    const pad = 14*dpr;
+
+    if (total<=0 || items.length===0){
+      ctx.fillStyle = cssVar("--muted");
+      ctx.font = `${12*dpr}px system-ui`;
+      ctx.fillText("データなし", pad, 22*dpr);
+      return;
+    }
+
+    const chartTop = 14*dpr, chartBottom = h - 18*dpr;
+    const chartLeft = 54*dpr, chartRight = w - 14*dpr;
+
+    ctx.strokeStyle = cssVar("--border");
+    ctx.beginPath();
+    ctx.moveTo(chartLeft, chartTop);
+    ctx.lineTo(chartLeft, chartBottom);
+    ctx.lineTo(chartRight, chartBottom);
+    ctx.stroke();
+
+    const max = Math.max(...items.map(x=>x.count));
+    const gap = 8*dpr;
+    const barH = Math.max(14*dpr, Math.floor((chartBottom-chartTop - gap*(items.length-1)) / items.length));
+    ctx.font = `${11*dpr}px system-ui`;
+
+    for (let i=0;i<items.length;i++){
+      const it = items[i];
+      const y = chartTop + i*(barH+gap);
+      const width = max>0 ? ((chartRight-chartLeft-10*dpr) * (it.count/max)) : 0;
+
+      ctx.fillStyle = tierColor(it.key, mode);
+      ctx.globalAlpha = 0.70;
+      ctx.fillRect(chartLeft+2*dpr, y, width, barH);
+      ctx.globalAlpha = 1;
+
+      const pct = total>0 ? (it.count/total*100) : 0;
+      ctx.fillStyle = cssVar("--text");
+      ctx.fillText(it.short, 6*dpr, y + barH*0.72);
+      ctx.fillText(`${it.count}（${pct.toFixed(1)}%）`, chartLeft + 6*dpr + width, y + barH*0.72);
+    }
+  }
+
+  // ===== Current-rank picker (division/tier) =====
+  let activeCurrentKey = "C";
+
+  function getCurrentPickerKeys(rows, mode){
+    const present = new Set(rows.map(r=>r.currentRankCode));
+    if (mode === "tier"){
+      const keys = [];
+      const has = (k)=>present.has(k);
+      if (has("C")) keys.push("C");
+      if (has("GM")) keys.push("GM");
+      if (has("M")) keys.push("M");
+      if (["D1","D2","D3","D4"].some(has)) keys.push("D");
+      if (["E1","E2","E3","E4"].some(has)) keys.push("E");
+      if (has("P-")) keys.push("P-");
+      return keys;
+    } else {
+      const order = ["C","GM","M","D1","D2","D3","D4","E1","E2","E3","E4","P-"];
+      return order.filter(x=>present.has(x));
+    }
+  }
+
+  function cssClassForCurrentKey(key, mode){
+    if (key==="C") return "C";
+    if (key==="GM") return "GM";
+    if (key==="M") return "M";
+    if (key==="P-") return "P-";
+    if (mode==="tier"){
+      if (key==="D") return "D2";
+      if (key==="E") return "E2";
+    }
+    return badgeClassForCode(key);
+  }
+
+  function buildCurrentRankPicker(rows){
+    const mode = $("viewMode").value;
+    const keys = getCurrentPickerKeys(rows, mode);
+    const wrap = $("rankPick");
+    wrap.innerHTML = "";
+    if (!keys.length) return;
+
+    if (!keys.includes(activeCurrentKey)) activeCurrentKey = keys[0];
+
+    for (const key of keys){
+      const btn = document.createElement("button");
+      btn.className = "rankBtn" + (key === activeCurrentKey ? " active" : "");
+      btn.setAttribute("data-cur", key);
+
+      const cls = cssClassForCurrentKey(key, mode);
+      btn.innerHTML = `<span class="code badge ${escapeHtml(cls)}">${key}</span>`;
+      btn.addEventListener("click", ()=>setActiveCurrent(key));
+      wrap.appendChild(btn);
+    }
+  }
+
+  function setActiveCurrent(key){
+    activeCurrentKey = key;
+    document.querySelectorAll(".rankBtn").forEach(b=>{
+      b.classList.toggle("active", b.getAttribute("data-cur") === key);
+    });
+    $("distTitle").textContent = `（現在：${key}）`;
+    renderAuditAndStats();
+  }
+
+  function rowsByActiveCurrent(){
+    const mode = $("viewMode").value;
+    if (mode === "tier"){
+      if (activeCurrentKey === "D") return appRows.filter(r => r.currentRankCode.startsWith("D"));
+      if (activeCurrentKey === "E") return appRows.filter(r => r.currentRankCode.startsWith("E"));
+      return appRows.filter(r => r.currentRankCode === activeCurrentKey);
+    }
+    return appRows.filter(r => r.currentRankCode === activeCurrentKey);
+  }
+
+  function visibleAuditRows(){
+    const mode = $("tableMode").value;
+    const base = rowsByActiveCurrent();
+    if (mode === "unfilled") return base.filter(r=>!r.prevRank);
+    return base;
+  }
+
+  function buildDistribution(rows, mode){
+    const dist = new Map();
+    let n = 0;
+    for (const r of rows){
+      if (!r.prevRank) continue;
+      n++;
+      const key = (mode==="tier") ? prevToTierKey(r.prevRank) : r.prevRank;
+      dist.set(key, (dist.get(key)||0) + 1);
+    }
+    return {dist, n};
+  }
+
+  function badgeClassForPrev(key, mode){
+    if (key === "C") return "C";
+    if (key === "GM") return "GM";
+    if (key === "M") return "M";
+    if (key === "P-") return "P-";
+    if (mode === "tier"){
+      if (key === "D") return "D2";
+      if (key === "E") return "E2";
+    }
+    if (/^(D[1-4]|E[1-4])$/.test(key)) return key;
+    return "P-";
+  }
+
+  function renderDistTable(dist, total, mode){
+    const tbody = $("distTbody");
+    tbody.innerHTML = "";
+    const order = (mode==="tier") ? PREV_ORDER_TIER : PREV_ORDER_DIV;
+
+    let any = false;
+    for (const key of order){
+      const count = dist.get(key) || 0;
+      if (count === 0) continue;
+      any = true;
+      const pct = total>0 ? (count/total*100) : 0;
+      const cls = badgeClassForPrev(key, mode);
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><span class="badge tierCell ${escapeHtml(cls)}">${escapeHtml(key)}</span></td>
+        <td class="num">${escapeHtml(count)}</td>
+        <td class="num">${escapeHtml(pct.toFixed(1))}%</td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    if (!any){
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td colspan="3" class="small">過去ランク入力済みが0。</td>`;
+      tbody.appendChild(tr);
+    }
+  }
+
+  function renderAuditTable(rows){
+    const tbody = $("auditTbody");
+    tbody.innerHTML = "";
+    const frag = document.createDocumentFragment();
+
+    for (const r of rows){
+      const tr = document.createElement("tr");
+      tr.setAttribute("data-riotid", r.riotId);
+
+      const cls = badgeClassForCode(r.currentRankCode);
+
+      tr.innerHTML = `
+        <td class="num">${escapeHtml(r.rank)}</td>
+        <td><div style="font-weight:1000;">${escapeHtml(r.riotId)}</div></td>
+        <td><span class="badge ${escapeHtml(cls)}">${escapeHtml(r.currentRankCode)}</span></td>
+        <td class="center">
+          <a class="iconBtn primary" href="${r.url}" target="_blank" rel="noopener noreferrer" title="OP.GGを開く">
+            🔗 <span class="txt">Open</span>
+          </a>
+        </td>
+        <td>
+          <select class="prevSelect" data-riotid="${escapeHtml(r.riotId)}" data-prev="${escapeHtml(r.prevRank || "")}">
+            <option value="">（未入力）</option>
+            ${PREV_OPTIONS.map(o => `<option value="${o.v}" ${o.v===r.prevRank ? "selected" : ""}>${escapeHtml(o.label)}</option>`).join("")}
+          </select>
+        </td>
+      `;
+      frag.appendChild(tr);
+    }
+
+    tbody.appendChild(frag);
+
+    tbody.querySelectorAll("select.prevSelect").forEach(sel=>{
+      sel.setAttribute("data-prev", sel.value || "");
+      sel.addEventListener("change", ()=>{
+        const riotId = sel.getAttribute("data-riotid");
+        const v = sel.value;
+        const region = $("region").value.toLowerCase();
+
+        sel.setAttribute("data-prev", v || "");
+
+        const row = appRows.find(x=>x.riotId===riotId);
+        if (row) row.prevRank = v;
+        setPrevRank(region, riotId, v);
+        renderAuditAndStats();
+      });
+    });
+  }
+
+  function renderAuditAndStats(){
+    const base = rowsByActiveCurrent();
+    const mode = $("viewMode").value;
+
+    const filled = base.filter(r=>!!r.prevRank).length;
+    const unfilled = base.length - filled;
+    $("filledInfo").textContent = `入力済み: ${filled}`;
+    $("unfilledInfo").textContent = `未入力: ${unfilled}`;
+
+    const vis = visibleAuditRows();
+    $("auditCount").textContent = `${vis.length}人（表示）`;
+    renderAuditTable(vis);
+
+    const {dist, n} = buildDistribution(base, mode);
+    $("distTotalInfo").textContent = `集計人数: ${n}`;
+
+    const items = distToItems(dist, mode);
+    drawPie($("pie"), items, n, mode);
+    drawBar($("bar"), items, n, mode);
+    renderDistTable(dist, n, mode);
+
+    $("distTitle").textContent = `（現在：${activeCurrentKey}）`;
+  }
+
+  // ===== open native select (best-effort) =====
+  function openNativeSelect(selectEl){
+    if (!selectEl) return;
+    const tryEvents = () => {
+      try{
+        selectEl.dispatchEvent(new MouseEvent("mousedown", {bubbles:true, cancelable:true, view:window}));
+        selectEl.dispatchEvent(new MouseEvent("click", {bubbles:true, cancelable:true, view:window}));
+      }catch{}
+    };
+    selectEl.focus({preventScroll:true});
+    setTimeout(tryEvents, 40);
+    setTimeout(tryEvents, 140);
+  }
+
+  // ===== nextUnfilled -> scroll + open dropdown =====
+  function nextUnfilled(){
+    const base = rowsByActiveCurrent();
+    const list = base.filter(r=>!r.prevRank);
+    if (list.length === 0){ toast("未入力はもう無い"); return; }
+
+    const target = list[0].riotId;
+    renderAuditAndStats();
+
+    const rowEl = $("auditTbody").querySelector(`tr[data-riotid="${CSS.escape(target)}"]`);
+    if (!rowEl){ toast("未入力行が見つからない"); return; }
+
+    rowEl.scrollIntoView({behavior:"smooth", block:"center"});
+
+    const sel = rowEl.querySelector("select.prevSelect");
+    setTimeout(()=>openNativeSelect(sel), 320);
+
+    toast("未入力へ移動して開いた");
+  }
+
+  function showTab(which){
+    const parse = $("tab-parse");
+    const audit = $("tab-audit");
+    const b1 = $("tabBtn-parse");
+    const b2 = $("tabBtn-audit");
+
+    if (which==="parse"){
+      parse.classList.remove("hidden");
+      audit.classList.add("hidden");
+      b1.classList.add("active");
+      b2.classList.remove("active");
+    } else {
+      parse.classList.add("hidden");
+      audit.classList.remove("hidden");
+      b1.classList.remove("active");
+      b2.classList.add("active");
+      renderAuditAndStats();
+    }
+  }
+
+  function runParse(){
+    const region = $("region").value.toLowerCase();
+    const raw = $("input").value || "";
+    if (!raw.trim()){
+      setStatus("入力が空", "warn");
+      toast("入力が空");
+      return;
+    }
+
+    appRows = parseLeaderboardText(raw, region);
+    applySavedPrevRanks(region, appRows);
+
+    $("countLabel").textContent = `${appRows.length}件`;
+    sortKey = "rank"; sortDir = "asc";
+    updateSortMarks();
+    renderParseTable(applySort(appRows));
+    renderChampionSummary(appRows);
+
+    activeCurrentKey = getCurrentPickerKeys(appRows, $("viewMode").value)[0] || "C";
+    buildCurrentRankPicker(appRows);
+
+    setStatus(`整理完了：${appRows.length}件`, "ok");
+    toast("整理した");
+  }
+
+  async function copyCsv(){
+    if (!appRows.length){ setStatus("データなし", "warn"); toast("まず整理して"); return; }
+    await copyText(toCsv(applySort(appRows)));
+    setStatus("CSVコピーOK", "ok");
+    toast("CSVをコピーした");
+  }
+  function downloadCsv(){
+    if (!appRows.length){ setStatus("データなし", "warn"); toast("まず整理して"); return; }
+    const ts = new Date();
+    const pad = (n)=>String(n).padStart(2,"0");
+    const name = `opgg_leaderboards_${ts.getFullYear()}-${pad(ts.getMonth()+1)}-${pad(ts.getDate())}.csv`;
+    download(name, toCsv(applySort(appRows)));
+    setStatus("CSV保存OK", "ok");
+    toast("CSVを保存した");
+  }
+  function clearAll(){
+    $("input").value = "";
+    appRows = [];
+    $("tbody").innerHTML = "";
+    $("champTbody").innerHTML = "";
+    $("countLabel").textContent = "0件";
+    $("champCountLabel").textContent = "0種";
+    $("rankPick").innerHTML = "";
+    setStatus("クリア", "");
+    toast("クリアした");
+    renderAuditAndStats();
+  }
+  async function exportAuditCsv(){
+    if (!appRows.length){ toast("まず整理して"); return; }
+    await copyText(toCsv(appRows));
+    toast("Audit CSVをコピーした");
+  }
+  function resetPrevRanks(){
+    const region = $("region").value.toLowerCase();
+    resetAllPrevRanks(region);
+    saveStateSoon();
+    for (const r of appRows) r.prevRank = "";
+    toast("過去ランクを全部消した");
+    renderAuditAndStats();
+  }
+  async function copyChampCsv(){
+    const csv = window.__champCsvCache || "";
+    if (!csv){ toast("まだデータが無い"); return; }
+    await copyText(csv);
+    toast("Champion CSVをコピーした");
+  }
+
+  // ===== Bookmarklet (drag & drop only) =====
+  const BOOKMARKLET = `javascript:(()=>{const norm=s=>String(s??"").replace(/\\u00A0/g," ").replace(/\\s+/g," ").trim();const lines=[];const toast=(m)=>{const d=document.createElement("div");d.textContent=m;d.style.cssText="position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:rgba(20,20,20,.92);color:#fff;padding:10px 12px;border-radius:999px;z-index:2147483647;font:12px system-ui;";document.body.appendChild(d);setTimeout(()=>d.remove(),1400)};const copy=async(txt)=>{try{await navigator.clipboard.writeText(txt);toast("コピーした（"+txt.split("\\n").filter(Boolean).length+"行）");}catch(e){toast("コピーできない：手動で選択");const ta=document.createElement("textarea");ta.value=txt;ta.style.cssText="position:fixed;left:12px;right:12px;bottom:12px;height:40vh;z-index:2147483647;border:2px solid #3b82f6;border-radius:12px;padding:10px;font:12px ui-monospace,monospace;background:#fff;color:#111;";document.body.appendChild(ta);ta.focus();ta.select();}};const tryRows=()=>{const tables=[...document.querySelectorAll("table")];let best=null,bestScore=0;for(const t of tables){const r=t.querySelectorAll("tbody tr");if(r.length<5)continue;const score=[...r].slice(0,10).reduce((s,tr)=>{const txt=tr.innerText||"";return s+((/diamond|emerald|master|grandmaster|challenger/i.test(txt))?2:0)+((/\\#/.test(txt))?1:0)},0);if(score>bestScore){bestScore=score;best=t;}}if(!best)return[];return [...best.querySelectorAll("tbody tr")];};const rows=tryRows();if(!rows.length){toast("表が見つからない");return;}const getChamps=(tr)=>{const alts=[...tr.querySelectorAll('img[alt]')].map(x=>norm(x.getAttribute("alt"))).filter(Boolean);const jp=alts.filter(a=>/^[\\u3040-\\u30ff\\u4e00-\\u9fff]/.test(a));const uniq=[];for(const a of jp){if(!uniq.includes(a))uniq.push(a);}if(uniq.length)return uniq.slice(0,3);const cells=[...tr.querySelectorAll("td")].map(td=>td.innerText||"");const all=norm(cells.join(" "));const parts=(all.split(/[\\n\\/]/).map(norm).filter(Boolean));const cand=parts.filter(p=>p.length>=2&&!/^(challenger|grandmaster|master|diamond|emerald|lp|win|loss|%|\\d+)$/i.test(p));const uniq2=[];for(const c of cand){if(!uniq2.includes(c))uniq2.push(c);}return uniq2.slice(0,3);};const parseTier=(txt)=>{txt=norm(txt).toLowerCase();const m=txt.match(/\\b(challenger|grandmaster|master)\\b/);if(m)return m[1];const m2=txt.match(/\\b(diamond|emerald)\\s*([1-4])\\b/);if(m2)return \`\${m2[1]} \${m2[2]}\`;return "";};const findRank=(tr)=>{const tds=[...tr.querySelectorAll("td")];for(const td of tds){const v=norm(td.innerText);if(/^\\d{1,4}$/.test(v))return v;}const m=norm(tr.innerText).match(/^\\s*(\\d{1,4})\\b/);return m?m[1]:"";};const findNameTag=(tr)=>{const text=(tr.innerText||"").split("\\n").map(norm).filter(Boolean);let name="",tag="";for(let i=0;i<text.length;i++){if(text[i].startsWith("#")){tag=text[i].slice(1).replace(/\\s+/g,"");name=text[i-1]??"";break;}}if(!name){const m=norm(tr.innerText).match(/(.+?)\\s*#\\s*([A-Za-z0-9]{2,20})/);if(m){name=norm(m[1]);tag=m[2];}}if(!name){const a=tr.querySelector('a[href*="/summoners/"]');if(a){const t=norm(a.innerText);const m=t.match(/(.+?)\\s*#\\s*(.+)$/);if(m){name=norm(m[1]);tag=norm(m[2]).replace(/\\s+/g,"");}else name=t;}}return {name,tag};};const findLP=(tr)=>{const t=norm(tr.innerText).replace(/,/g,"");const nums=[...t.matchAll(/\\b(\\d{2,4})\\b/g)].map(m=>parseInt(m[1],10)).filter(n=>n>=1&&n<=3000);if(!nums.length)return"";let best=nums[0];for(const n of nums){if(n>best)best=n;}return String(best);};const findLevel=(tr)=>{const t=norm(tr.innerText).replace(/,/g,"");const nums=[...t.matchAll(/\\b(\\d{1,4})\\b/g)].map(m=>parseInt(m[1],10));const lv=nums.filter(n=>n>=1&&n<=3000);if(!lv.length)return"";return String(lv[lv.length-1]);};const findWLR=(tr)=>{const t=tr.innerText||"";const w=(t.match(/(\\d+)\\s*勝/)||[])[1]||"";const l=(t.match(/(\\d+)\\s*敗/)||[])[1]||"";const r=(t.replace(/％/g,"%").match(/(\\d+)\\s*%/)||[])[1]||"";return {w,l,r};};for(const tr of rows){const rank=findRank(tr);if(!rank)continue;const {name,tag}=findNameTag(tr);if(!name||!tag)continue;const tier=parseTier(tr.innerText||"");const lp=findLP(tr);const champs=getChamps(tr);const lv=findLevel(tr);const {w,l,r}=findWLR(tr);lines.push(rank);lines.push(name);lines.push("#"+tag);if(tier)lines.push(tier);if(lp)lines.push(lp);for(const c of champs)lines.push(c);if(lv)lines.push(lv);if(w)lines.push(w+"勝");if(l)lines.push(l+"敗");if(r)lines.push(r+"%");lines.push("");}const out=lines.join("\\n").trim()+"\\n";copy(out);})()`;
+
+  // ---- help modal ----
+  function openHelp(){
+    const a = $("dragBookmarklet");
+    if (a) a.setAttribute("href", BOOKMARKLET);
+
+    // Help内のリージョンは、いったん現在選択中のリージョンに合わせる
+    const mainRegion = $("region")?.value || "jp";
+    const helpSel = $("helpRegion");
+    if (helpSel){
+      helpSel.value = mainRegion;
+      updateHelpOpgg();
+    }
+
+    $("helpModal").classList.remove("hidden");
+  }
+  function closeHelp(){ $("helpModal").classList.add("hidden"); }
+  $("btnHelp").addEventListener("click", openHelp);
+  $("btnHelpClose").addEventListener("click", closeHelp);
+
+  const helpSel = $("helpRegion");
+  if (helpSel){
+    helpSel.addEventListener("change", ()=>{
+      updateHelpOpgg();
+    });
+  }
+
+  $("helpModal").addEventListener("click", (e)=>{
+    if (e.target && e.target.getAttribute("data-close")==="1") closeHelp();
+  });
+  document.addEventListener("keydown", (e)=>{
+    if (e.key === "Escape" && !$("helpModal").classList.contains("hidden")) closeHelp();
+  });
+
+  // ---- events ----
+  $("tabBtn-parse").addEventListener("click", ()=>showTab("parse"));
+  $("tabBtn-audit").addEventListener("click", ()=>showTab("audit"));
+
+  $("btnParse").onclick = runParse;
+  const _btnCopyCsv = $("btnCopyCsv");
+  if (_btnCopyCsv) _btnCopyCsv.onclick = copyCsv;
+  const _btnDownloadCsv = $("btnDownloadCsv");
+  if (_btnDownloadCsv) _btnDownloadCsv.onclick = downloadCsv;
+$("btnClear").onclick = clearAll;
+  const _btnCopyChampCsv = $("btnCopyChampCsv");
+  if (_btnCopyChampCsv) _btnCopyChampCsv.addEventListener("click", copyChampCsv);
+document.querySelectorAll("#tab-parse th.sortable").forEach(th=>{
+    th.addEventListener("click", ()=>{
+      if (!appRows.length) return;
+      const key = th.getAttribute("data-sort");
+      if (!["rank","winrateNum","gamesNum"].includes(key)) return;
+
+      if (key === sortKey) sortDir = (sortDir === "asc") ? "desc" : "asc";
+      else { sortKey = key; sortDir = "desc"; }
+      if (key === "rank") sortDir = "asc";
+      updateSortMarks();
+      renderParseTable(applySort(appRows));
+    });
+  });
+
+  $("input").addEventListener("keydown", (e)=>{
+    if((e.ctrlKey || e.metaKey) && e.key === "Enter") runParse();
+  });
+
+  $("viewMode").addEventListener("change", ()=>{
+    if (!appRows.length){
+      buildCurrentRankPicker([]);
+      return;
+    }
+    buildCurrentRankPicker(appRows);
+    renderAuditAndStats();
+  });
+
+  $("tableMode").addEventListener("change", renderAuditAndStats);
+  $("btnNextUnfilled").addEventListener("click", nextUnfilled);
+  const _btnExportAuditCsv = $("btnExportAuditCsv");
+  if (_btnExportAuditCsv) _btnExportAuditCsv.addEventListener("click", exportAuditCsv);
+$("btnResetPrevRanks").addEventListener("click", resetPrevRanks);
+
+  $("region").addEventListener("change", ()=>{
+    if (!appRows.length) return;
+    const region = $("region").value.toLowerCase();
+    applySavedPrevRanks(region, appRows);
+    renderParseTable(applySort(appRows));
+    renderChampionSummary(appRows);
+    renderAuditAndStats();
+    toast("リージョン切替：保存済み入力を再適用");
+  });
+
+  const ro = new ResizeObserver(()=> {
+    if (!$("tab-audit").classList.contains("hidden")) renderAuditAndStats();
+  });
+  ro.observe($("pie"));
+  ro.observe($("bar"));
+
+  updateSortMarks();
+  showTab("parse");
+
+/* ===== FIX: sortable toggle asc/desc ===== */
+window.addEventListener("load", ()=>{
+  document.querySelectorAll("th.sortable").forEach(th=>{
+    th.onclick = ()=>{
+      const key = th.getAttribute("data-sort");
+      if (sortKey === key){
+        sortDir = (sortDir === "asc") ? "desc" : "asc";
+      }else{
+        sortKey = key;
+        sortDir = "asc";
+      }
+      updateSortMarks();
+      renderParseTable(applySort(appRows));
+    };
+  });
+});
+
+
+/* ===== FIX: sortable toggle asc/desc (force override) ===== */
+window.addEventListener("load", ()=>{
+  document.querySelectorAll("th.sortable").forEach(th=>{
+    th.addEventListener("click", (e)=>{
+      const key = th.getAttribute("data-sort");
+
+      // Only intercept the MAIN table sort keys.
+      // Champion table (champ/count/share) must be handled by its own sorter.
+      if (!["rank","winrateNum","gamesNum"].includes(key)) return;
+
+      e.preventDefault();
+      e.stopImmediatePropagation();
+
+      if (sortKey === key){
+        sortDir = (sortDir === "asc") ? "desc" : "asc";
+      }else{
+        sortKey = key;
+        sortDir = "asc";
+      }
+      updateSortMarks();
+      renderParseTable(applySort(appRows));
+    }, true); // capture=true to run before other listeners
+  });
+});
+
+
+</script>
+</body>
+</html>
